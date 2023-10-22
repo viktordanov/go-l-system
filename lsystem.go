@@ -19,6 +19,14 @@ func (ts TokenSet) Add(t Token) {
 	ts[t] = struct{}{}
 }
 
+func (ts TokenSet) AsSlice() []Token {
+	slice := make([]Token, 0, len(ts))
+	for t := range ts {
+		slice = append(slice, t)
+	}
+	return slice
+}
+
 type ProductionRule struct {
 	Predecessor    Token
 	WeightedTokens []struct {
