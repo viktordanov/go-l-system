@@ -149,13 +149,18 @@ func isCapitalized(t Token) bool {
 	return firstLetter >= 'A' && firstLetter <= 'Z'
 }
 
+func isVariable(t Token) bool {
+	endsWithUnderscore := string(t)[len(t)-1] == '_'
+	return isCapitalized(t) && !endsWithUnderscore
+}
+
 func ParseRules(rulesMap map[Token]string) (TokenSet, TokenSet, map[Token]*ProductionRule) {
 	vars := make(TokenSet)
 	consts := make(TokenSet)
 	parsedRules := make(map[Token]*ProductionRule)
 
 	for key, value := range rulesMap {
-		if isCapitalized(key) {
+		if isVariable(key) {
 			vars.Add(key)
 		} else {
 			consts.Add(key)
@@ -164,7 +169,7 @@ func ParseRules(rulesMap map[Token]string) (TokenSet, TokenSet, map[Token]*Produ
 
 		for _, wt := range parsedRules[key].WeightedTokens {
 			for _, token := range wt.Tokens {
-				if isCapitalized(token) {
+				if isVariable(token) {
 					vars.Add(token)
 				} else {
 					consts.Add(token)
