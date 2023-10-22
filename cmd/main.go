@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	. "github.com/viktordanov/lsystem"
 )
 
@@ -20,4 +22,6 @@ func main() {
 	for i := 0; i < 60; i++ {
 		lsys.Iterate(i)
 	}
+
+	fmt.Println(lsys)
 }

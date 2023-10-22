@@ -35,6 +35,27 @@ type ProductionRule struct {
 	}
 }
 
+func (r *ProductionRule) String() string {
+	var sb strings.Builder
+	sb.WriteRune('"')
+	sb.WriteString(string(r.Predecessor))
+	sb.WriteRune('"')
+	sb.WriteString(": `")
+	for i, wt := range r.WeightedTokens {
+		sb.WriteString(strconv.FormatFloat(wt.Probability, 'f', 2, 64))
+		sb.WriteString(" ")
+		for _, t := range wt.Tokens {
+			sb.WriteString(string(t))
+			sb.WriteString(" ")
+		}
+		if i != len(r.WeightedTokens)-1 {
+			sb.WriteString("; ")
+		}
+	}
+	sb.WriteString("`")
+	return sb.String()
+}
+
 func NewProductionRule(predecessor Token, weightedTokens []struct {
 	Probability float64
 	Tokens      []Token
@@ -156,6 +177,15 @@ func (l *LSystem) Iterate(n int) []Token {
 
 func (l *LSystem) IterateOnce() []Token {
 	return l.Iterate(1)
+}
+
+func (l *LSystem) String() string {
+	var sb strings.Builder
+	for _, rule := range l.Rules {
+		sb.WriteString(rule.String())
+		sb.WriteString(",\n")
+	}
+	return sb.String()
 }
 
 func (l *LSystem) Reset() {
