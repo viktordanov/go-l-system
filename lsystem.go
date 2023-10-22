@@ -189,6 +189,8 @@ func ParseRules(rulesMap map[Token]string) (TokenSet, TokenSet, map[Token]*Produ
 		for _, wt := range parsedRules[key].WeightedTokens {
 			for _, token := range wt.Tokens {
 				if isVariable(token) {
+					// remove numbers from variables
+					token = Token(strings.TrimRight(string(token), "0123456789"))
 					vars.Add(token)
 				} else {
 					consts.Add(token)
