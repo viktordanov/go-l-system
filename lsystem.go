@@ -87,7 +87,7 @@ func (l *LSystem) IsConstant(t Token) bool {
 }
 
 func (l *LSystem) applyRules(input []Token) []Token {
-	output := make([]Token, 0)
+	output := make([]Token, 0, len(input)*2)
 	for _, token := range input {
 		rule, exists := l.Rules[token]
 		if exists && l.IsVariable(token) {
