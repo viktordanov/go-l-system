@@ -120,6 +120,9 @@ func (l *LSystem) applyRules(input []Token) []Token {
 
 		if l.IsStatefulVariable(token) {
 			variable, num := l.parseStatefulVariable(token)
+			if num == 0 {
+				num++
+			}
 			token = Token(string(variable) + strconv.Itoa(num-1))
 		}
 
