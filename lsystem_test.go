@@ -24,7 +24,7 @@ func BenchmarkLSystemIterate(b *testing.B) {
 	ls := NewLSystem("Seed", rules, vars, consts)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ls.Iterate(5)
+		ls.IterateUntil(10)
 	}
 }
 
