@@ -35,3 +35,33 @@ func BenchmarkChooseSuccessor(b *testing.B) {
 		r.ChooseSuccessor()
 	}
 }
+
+func TestCounterVariables(t *testing.T) {
+	var counterRules = map[Token]string{
+		"Seed": `1 L u S2`,
+		"L":    `1 L`,
+		"S0":   `1 X`,
+	}
+	vars, consts, rules := ParseRules(counterRules)
+	ls := NewLSystem("Seed", rules, vars, consts)
+
+	ls.IterateOnce()
+	assertState(t, []Token{"L", "u", "S2"}, ls.State)
+
+	ls.IterateOnce()
+	assertState(t, []Token{"L", "u", "S1"}, ls.State)
+
+	ls.IterateOnce()
+	assertState(t, []Token{"L", "u", "X"}, ls.State)
+}
+
+func assertState(t *testing.T, expected, actual []Token) {
+	if len(expected) != len(actual) {
+		t.Errorf("Expected %v, got %v", expected, actual)
+	}
+	for i, e := range expected {
+		if e != actual[i] {
+			t.Errorf("Expected %v, got %v", expected, actual)
+		}
+	}
+}

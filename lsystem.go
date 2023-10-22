@@ -86,9 +86,43 @@ func (l *LSystem) IsConstant(t Token) bool {
 	return l.Constants.Contains(t)
 }
 
+func (l *LSystem) IsStatefulVariable(t Token) bool {
+	firstRune := rune(string(t)[0])
+	lastRune := rune(string(t)[len(t)-1])
+	return lastRune >= '0' && lastRune <= '9' && firstRune >= 'A' && firstRune <= 'Z'
+}
+
+func (l *LSystem) parseStatefulVariable(t Token) (Token, int) {
+	digits := make([]rune, 0, 2)
+	var sb strings.Builder
+	for _, r := range t {
+		if r >= '0' && r <= '9' {
+			digits = append(digits, r)
+			continue
+		}
+		if len(digits) == 0 {
+			sb.WriteRune(r)
+			continue
+		}
+	}
+
+	num := 0
+	for _, d := range digits {
+		num = num*10 + int(d-'0')
+	}
+
+	return Token(sb.String()), num
+}
+
 func (l *LSystem) applyRules(input []Token) []Token {
 	output := make([]Token, 0, len(input)*2)
 	for _, token := range input {
+
+		if l.IsStatefulVariable(token) {
+			variable, num := l.parseStatefulVariable(token)
+			token = Token(string(variable) + strconv.Itoa(num-1))
+		}
+
 		rule, exists := l.Rules[token]
 		if exists && l.IsVariable(token) {
 			output = append(output, rule.ChooseSuccessor()...)
