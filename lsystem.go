@@ -65,6 +65,7 @@ type LSystem struct {
 	Rules     map[Token]*ProductionRule
 	Variables TokenSet
 	Constants TokenSet
+	State     []Token
 }
 
 func NewLSystem(axiom Token, rulesMap map[Token]*ProductionRule, vars TokenSet, consts TokenSet) *LSystem {
@@ -73,6 +74,7 @@ func NewLSystem(axiom Token, rulesMap map[Token]*ProductionRule, vars TokenSet, 
 		Rules:     rulesMap,
 		Variables: vars,
 		Constants: consts,
+		State:     []Token{axiom},
 	}
 }
 
@@ -84,7 +86,6 @@ func (l *LSystem) IsConstant(t Token) bool {
 	return l.Constants.Contains(t)
 }
 
-// Updated applyRules method to replace only variables
 func (l *LSystem) applyRules(input []Token) []Token {
 	output := make([]Token, 0)
 	for _, token := range input {
@@ -98,12 +99,30 @@ func (l *LSystem) applyRules(input []Token) []Token {
 	return output
 }
 
-func (l *LSystem) Iterate(n int) []Token {
+func (l *LSystem) IterateUntil(n int) []Token {
 	result := []Token{l.Axiom}
 	for i := 0; i < n; i++ {
 		result = l.applyRules(result)
 	}
 	return result
+}
+
+func (l *LSystem) Iterate(n int) []Token {
+	result := l.State
+	for i := 0; i < n; i++ {
+		result = l.applyRules(result)
+	}
+
+	l.State = result
+	return result
+}
+
+func (l *LSystem) IterateOnce() []Token {
+	return l.Iterate(1)
+}
+
+func (l *LSystem) Reset() {
+	l.State = []Token{l.Axiom}
 }
 
 func ParseRule(str string) []struct {
