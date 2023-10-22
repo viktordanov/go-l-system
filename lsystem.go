@@ -61,7 +61,7 @@ func (r *ProductionRule) ChooseSuccessor() []Token {
 }
 
 type LSystem struct {
-	Axiom     []Token
+	Axiom     Token
 	Rules     map[Token]*ProductionRule
 	Variables TokenSet
 	Constants TokenSet
@@ -69,7 +69,7 @@ type LSystem struct {
 
 func NewLSystem(axiom Token, rulesMap map[Token]*ProductionRule, vars TokenSet, consts TokenSet) *LSystem {
 	return &LSystem{
-		Axiom:     []Token{axiom},
+		Axiom:     axiom,
 		Rules:     rulesMap,
 		Variables: vars,
 		Constants: consts,
@@ -99,7 +99,7 @@ func (l *LSystem) applyRules(input []Token) []Token {
 }
 
 func (l *LSystem) Iterate(n int) []Token {
-	result := l.Axiom
+	result := []Token{l.Axiom}
 	for i := 0; i < n; i++ {
 		result = l.applyRules(result)
 	}
