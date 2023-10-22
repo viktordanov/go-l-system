@@ -201,3 +201,7 @@ func ParseRules(rulesMap map[Token]string) (TokenSet, TokenSet, map[Token]*Produ
 
 	return vars, consts, parsedRules
 }
+
+func ParseState(state string) []Token {
+	return symbolsToTokens(strings.Fields(state))
+}
