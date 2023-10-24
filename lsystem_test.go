@@ -36,32 +36,49 @@ func BenchmarkChooseSuccessor(b *testing.B) {
 	}
 }
 
+func BenchmarkByteTokenPacking(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		NewBytePair(121, 116)
+	}
+}
+
+func BenchmarkByteTokenUnpacking(b *testing.B) {
+	t := NewBytePair(121, 116)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		t.First()
+		t.Second()
+	}
+}
+
 func TestCounterVariables(t *testing.T) {
 	var counterRules = map[Token]string{
-		"Seed": `1 L u S2`,
+		"Seed": `1 L u S3`,
 		"L":    `1 L`,
-		"S0":   `1 X`,
+		"S1":   `1 X`,
 	}
 	vars, consts, rules := ParseRules(counterRules)
 	ls := NewLSystem("Seed", rules, vars, consts)
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S2"}, ls.State)
+	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.State))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S1"}, ls.State)
+	assertState(t, []Token{"L", "u", "S2"}, ls.DecodeBytes(ls.State))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "X"}, ls.State)
+	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.State))
 }
 
 func assertState(t *testing.T, expected, actual []Token) {
 	if len(expected) != len(actual) {
 		t.Errorf("Expected %v, got %v", expected, actual)
+		return
 	}
 	for i, e := range expected {
 		if e != actual[i] {
 			t.Errorf("Expected %v, got %v", expected, actual)
+			return
 		}
 	}
 }
