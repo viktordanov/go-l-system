@@ -1,6 +1,7 @@
 package lsystem
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func BenchmarkParseRules(b *testing.B) {
 	}
 }
 
-func BenchmarkLSystemIterate(b *testing.B) {
+func BenchmarkLSystemIterate10(b *testing.B) {
 	vars, consts, rules := ParseRules(benchmarkRules)
 	ls := NewLSystem("Seed", rules, vars, consts)
 	b.ResetTimer()
@@ -27,12 +28,42 @@ func BenchmarkLSystemIterate(b *testing.B) {
 		ls.IterateUntil(10)
 	}
 }
+func BenchmarkLSystemIterate50(b *testing.B) {
+	vars, consts, rules := ParseRules(benchmarkRules)
+	ls := NewLSystem("Seed", rules, vars, consts)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ls.IterateUntil(50)
+	}
+}
+func BenchmarkLSystemIterate100(b *testing.B) {
+	vars, consts, rules := ParseRules(benchmarkRules)
+	ls := NewLSystem("Seed", rules, vars, consts)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ls.IterateUntil(100)
+	}
+}
 
 func BenchmarkChooseSuccessor(b *testing.B) {
 	r := NewProductionRule("L", ParseRule(`0.1 L u L w F e; 0.1 L_ u L e F w; 0.1 L_ u L n F s; 0.1 L_ u L s F n; 0.04 L_ [ w L_ w u seed ]; 0.04 L_ [ e L_ e u seed ]; 0.04 L_ [ s L_ s u seed ]; 0.04 L_ [ n L_ n u seed ]; 0.05 L_ u L; 1 L`))
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		r.ChooseSuccessor()
+	}
+}
+
+func BenchmarkChooseSuccessorBytes(b *testing.B) {
+	vars, consts, rules := ParseRules(benchmarkRules)
+	ls := NewLSystem("Seed", rules, vars, consts)
+	r := NewProductionRule("L", ParseRule(`0.1 L u L w F e; 0.1 L_ u L e F w; 0.1 L_ u L n F s; 0.1 L_ u L s F n; 0.04 L_ [ w L_ w u seed ]; 0.04 L_ [ e L_ e u seed ]; 0.04 L_ [ s L_ s u seed ]; 0.04 L_ [ n L_ n u seed ]; 0.05 L_ u L; 1 L`))
+
+	br := ls.ByteRules[ls.TokenBytes[r.Predecessor]]
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		br.ChooseSuccessor()
 	}
 }
 
@@ -61,24 +92,36 @@ func TestCounterVariables(t *testing.T) {
 	ls := NewLSystem("Seed", rules, vars, consts)
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.State))
+	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.MemPool.GetSwap().BytePairs[0:ls.MemPool.GetSwap().Len]))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S2"}, ls.DecodeBytes(ls.State))
+	assertState(t, []Token{"L", "u", "S2"}, ls.DecodeBytes(ls.MemPool.GetSwap().BytePairs[0:ls.MemPool.GetSwap().Len]))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.State))
+	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.MemPool.GetSwap().BytePairs[0:ls.MemPool.GetSwap().Len]))
 }
 
 func assertState(t *testing.T, expected, actual []Token) {
-	if len(expected) != len(actual) {
-		t.Errorf("Expected %v, got %v", expected, actual)
-		return
+	assert.Equal(t, len(expected), len(actual))
+	assert.EqualValues(t, expected, actual)
+}
+
+func TestMemoryPool(t *testing.T) {
+	pool := NewBufferPool(2)
+	bp := NewBytePair(1, 2)
+	for i := 0; i < 10; i++ {
+		pool.Append(bp)
 	}
-	for i, e := range expected {
-		if e != actual[i] {
-			t.Errorf("Expected %v, got %v", expected, actual)
-			return
-		}
+
+	assert.Equal(t, 16, pool.GetCap())
+	assert.EqualValues(t, []BytePair{bp, bp, bp, bp, bp, bp, bp, bp, bp, bp}, pool.GetActive().BytePairs[:10])
+
+	pool.Swap()
+	assert.EqualValues(t, []BytePair{bp, bp, bp, bp, bp, bp, bp, bp, bp, bp}, pool.GetSwap().BytePairs[:10])
+	pool.ResetWritingHead()
+	for i := 0; i < 10; i++ {
+		pool.Append(bp)
 	}
+	assert.Equal(t, 16, pool.GetCap())
+	assert.EqualValues(t, []BytePair{bp, bp, bp, bp, bp, bp, bp, bp, bp, bp}, pool.GetActive().BytePairs[:10])
 }
