@@ -1,102 +1,89 @@
 package lsystem
 
 import (
-	"math/rand"
 	"strconv"
 	"strings"
 )
 
-type Token string
-
-type TokenSet map[Token]struct{}
-
-func (ts TokenSet) Contains(t Token) bool {
-	_, exists := ts[t]
-	return exists
-}
-
-func (ts TokenSet) Add(t Token) {
-	ts[t] = struct{}{}
-}
-
-func (ts TokenSet) AsSlice() []Token {
-	slice := make([]Token, 0, len(ts))
-	for t := range ts {
-		slice = append(slice, t)
-	}
-	return slice
-}
-
-type ProductionRule struct {
-	Predecessor    Token
-	WeightedTokens []struct {
-		Probability float64
-		Tokens      []Token
-	}
-}
-
-func (r *ProductionRule) String() string {
-	var sb strings.Builder
-	sb.WriteRune('"')
-	sb.WriteString(string(r.Predecessor))
-	sb.WriteRune('"')
-	sb.WriteString(": `")
-	for i, wt := range r.WeightedTokens {
-		sb.WriteString(strconv.FormatFloat(wt.Probability, 'f', 2, 64))
-		sb.WriteString(" ")
-		for _, t := range wt.Tokens {
-			sb.WriteString(string(t))
-			sb.WriteString(" ")
-		}
-		if i != len(r.WeightedTokens)-1 {
-			sb.WriteString("; ")
-		}
-	}
-	sb.WriteString("`")
-	return sb.String()
-}
-
-func NewProductionRule(predecessor Token, weightedTokens []struct {
-	Probability float64
-	Tokens      []Token
-}) *ProductionRule {
-	return &ProductionRule{
-		Predecessor:    predecessor,
-		WeightedTokens: weightedTokens,
-	}
-}
-
-func (r *ProductionRule) ChooseSuccessor() []Token {
-	total := 0.0
-	for _, wt := range r.WeightedTokens {
-		total += wt.Probability
-	}
-	random := rand.Float64() * total
-	for _, wt := range r.WeightedTokens {
-		random -= wt.Probability
-		if random < 0 {
-			return wt.Tokens
-		}
-	}
-	return []Token{}
-}
-
 type LSystem struct {
 	Axiom     Token
-	Rules     map[Token]*ProductionRule
+	Rules     map[Token]ProductionRule
 	Variables TokenSet
 	Constants TokenSet
-	State     []Token
+	State     []BytePair
+
+	TokenBytes map[Token]BytePair
+	BytesToken map[BytePair]Token
+	ByteRules  [65535]ByteProductionRule
 }
 
-func NewLSystem(axiom Token, rulesMap map[Token]*ProductionRule, vars TokenSet, consts TokenSet) *LSystem {
-	return &LSystem{
+func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet) *LSystem {
+	lSystem := &LSystem{
 		Axiom:     axiom,
 		Rules:     rulesMap,
 		Variables: vars,
 		Constants: consts,
-		State:     []Token{axiom},
+		State:     []BytePair{},
 	}
+
+	lSystem.encodeTokens()
+	lSystem.Reset()
+	return lSystem
+}
+
+func (l *LSystem) encodeTokens() {
+	l.TokenBytes = make(map[Token]BytePair)
+	l.BytesToken = make(map[BytePair]Token)
+	i := uint8(0)
+	for t := range l.Variables {
+		baseVar, numberState, isStateful := tryParseStatefulVariable(t)
+		if isStateful {
+			// first encode base variable
+			baseVar := Token(baseVar)
+			baseBytes, exists := l.TokenBytes[baseVar]
+			if !exists {
+				bytePair := NewBytePair(i, 0)
+				l.TokenBytes[baseVar] = bytePair
+				l.BytesToken[bytePair] = baseVar
+
+				baseBytes = bytePair
+			}
+
+			bytePair := NewBytePair(baseBytes.First(), numberState)
+			l.TokenBytes[Token(string(baseVar)+strconv.Itoa(int(numberState)))] = bytePair
+			l.BytesToken[bytePair] = Token(string(baseVar) + strconv.Itoa(int(numberState)))
+
+		} else {
+			bytePair := NewBytePair(i, 0)
+			l.TokenBytes[t] = bytePair
+			l.BytesToken[bytePair] = t
+		}
+		i++
+	}
+	for t := range l.Constants {
+		bytePair := NewBytePair(i, 0)
+		l.TokenBytes[t] = bytePair
+		l.BytesToken[bytePair] = t
+		i++
+	}
+
+	l.ByteRules = [65535]ByteProductionRule{}
+	for t, rule := range l.Rules {
+		l.ByteRules[l.TokenBytes[t]] = rule.encodeTokens(l.TokenBytes)
+	}
+}
+
+func (l *LSystem) DecodeBytes(bp []BytePair) []Token {
+	result := make([]Token, 0, len(bp))
+	for _, bytePair := range bp {
+		v, exists := l.BytesToken[bytePair]
+		if !exists {
+			base := bytePair.First()
+			v = Token(string(l.BytesToken[NewBytePair(base, 0)]) + strconv.Itoa(int(bytePair.Second())))
+		}
+		result = append(result, v)
+	}
+	return result
 }
 
 func (l *LSystem) IsVariable(t Token) bool {
@@ -107,65 +94,46 @@ func (l *LSystem) IsConstant(t Token) bool {
 	return l.Constants.Contains(t)
 }
 
-func (l *LSystem) IsStatefulVariable(t Token) bool {
-	firstRune := rune(string(t)[0])
-	lastRune := rune(string(t)[len(t)-1])
-	return lastRune >= '0' && lastRune <= '9' && firstRune >= 'A' && firstRune <= 'Z'
-}
+// TODO: Optimizations to do:
+// 1) use an array for the rules and represent variables and constatns as int8s (indices in the array)
+// to completely circumvent the map lookups
+// 2) store a counter for each variable to avoid parsing the variable name and number every time
+// -1 for no number, any other number means it's stateful
+// 3) think about a better way to do random selection
+// 4) implement a memory pool which automatically grows when necessary
+// it will start off as 2 big preallocated arrays, one for the current state and one for the next state
+// which will be swapped after each iteration and the other one will be overwritten in-place (store their length as well)
+// Also make apply rules work in-place instead of allocating a new array and returning it
 
-func (l *LSystem) parseStatefulVariable(t Token) (Token, int) {
-	digits := make([]rune, 0, 2)
-	var sb strings.Builder
-	for _, r := range t {
-		if r >= '0' && r <= '9' {
-			digits = append(digits, r)
-			continue
-		}
-		if len(digits) == 0 {
-			sb.WriteRune(r)
-			continue
-		}
-	}
+func (l *LSystem) applyRules(input []BytePair) []BytePair {
+	output := make([]BytePair, 0, len(input)*2)
 
-	num := 0
-	for _, d := range digits {
-		num = num*10 + int(d-'0')
-	}
-
-	return Token(sb.String()), num
-}
-
-func (l *LSystem) applyRules(input []Token) []Token {
-	output := make([]Token, 0, len(input)*2)
 	for _, token := range input {
-
-		if l.IsStatefulVariable(token) {
-			variable, num := l.parseStatefulVariable(token)
-			if num == 0 {
-				num++
-			}
-			token = Token(string(variable) + strconv.Itoa(num-1))
+		numPart := token.Second()
+		if numPart != 0 {
+			numPart--
 		}
 
-		rule, exists := l.Rules[token]
-		if exists && l.IsVariable(token) {
-			output = append(output, rule.ChooseSuccessor()...)
-		} else {
-			output = append(output, token)
+		newToken := NewBytePair(token.First(), numPart)
+		rules := l.ByteRules[newToken]
+		if rules.Weights == nil {
+			output = append(output, newToken)
+			continue
 		}
+		output = append(output, rules.ChooseSuccessor()...)
 	}
 	return output
 }
 
-func (l *LSystem) IterateUntil(n int) []Token {
-	result := []Token{l.Axiom}
+func (l *LSystem) IterateUntil(n int) []BytePair {
+	result := []BytePair{l.TokenBytes[l.Axiom]}
 	for i := 0; i < n; i++ {
 		result = l.applyRules(result)
 	}
 	return result
 }
 
-func (l *LSystem) Iterate(n int) []Token {
+func (l *LSystem) Iterate(n int) []BytePair {
 	result := l.State
 	for i := 0; i < n; i++ {
 		result = l.applyRules(result)
@@ -175,7 +143,7 @@ func (l *LSystem) Iterate(n int) []Token {
 	return result
 }
 
-func (l *LSystem) IterateOnce() []Token {
+func (l *LSystem) IterateOnce() []BytePair {
 	return l.Iterate(1)
 }
 
@@ -189,86 +157,5 @@ func (l *LSystem) String() string {
 }
 
 func (l *LSystem) Reset() {
-	l.State = []Token{l.Axiom}
-}
-
-func ParseRule(str string) []struct {
-	Probability float64
-	Tokens      []Token
-} {
-	groups := strings.Split(strings.ReplaceAll(str, "\n", ""), ";")
-	var weightedTokens []struct {
-		Probability float64
-		Tokens      []Token
-	}
-
-	for _, group := range groups {
-		if strings.TrimSpace(group) == "" {
-			continue
-		}
-		tokens := strings.Fields(group)
-		weight, err := strconv.ParseFloat(tokens[0], 64)
-		if err != nil {
-			continue
-		}
-		weightedTokens = append(weightedTokens, struct {
-			Probability float64
-			Tokens      []Token
-		}{
-			Probability: weight,
-			Tokens:      symbolsToTokens(tokens[1:]),
-		})
-	}
-	return weightedTokens
-}
-
-func symbolsToTokens(symbols []string) []Token {
-	var tokens []Token
-	for _, symbol := range symbols {
-		tokens = append(tokens, Token(symbol))
-	}
-	return tokens
-}
-
-func isCapitalized(t Token) bool {
-	firstLetter := string(t)[0]
-	return firstLetter >= 'A' && firstLetter <= 'Z'
-}
-
-func isVariable(t Token) bool {
-	endsWithUnderscore := string(t)[len(t)-1] == '_'
-	return isCapitalized(t) && !endsWithUnderscore
-}
-
-func ParseRules(rulesMap map[Token]string) (TokenSet, TokenSet, map[Token]*ProductionRule) {
-	vars := make(TokenSet)
-	consts := make(TokenSet)
-	parsedRules := make(map[Token]*ProductionRule)
-
-	for key, value := range rulesMap {
-		if isVariable(key) {
-			vars.Add(key)
-		} else {
-			consts.Add(key)
-		}
-		parsedRules[key] = NewProductionRule(key, ParseRule(value))
-
-		for _, wt := range parsedRules[key].WeightedTokens {
-			for _, token := range wt.Tokens {
-				if isVariable(token) {
-					// remove numbers from variables
-					token = Token(strings.TrimRight(string(token), "0123456789"))
-					vars.Add(token)
-				} else {
-					consts.Add(token)
-				}
-			}
-		}
-	}
-
-	return vars, consts, parsedRules
-}
-
-func ParseState(state string) []Token {
-	return symbolsToTokens(strings.Fields(state))
+	l.State = []BytePair{l.TokenBytes[l.Axiom]}
 }
