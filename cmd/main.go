@@ -41,10 +41,10 @@ func main() {
 	for i := 0; i < 1; i++ {
 		fmt.Println("Iteration", i)
 		lsys.Reset()
-		for i := 0; i < 220; i++ {
+		for i := 0; i < 170; i++ {
 			lsys.IterateOnce()
 		}
 	}
 
-	// zdfmt.Println(lsys.DecodeBytes(lsys.State))
+	//fmt.Println(lsys.DecodeBytes(lsys.State))
 }
