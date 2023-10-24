@@ -3,6 +3,7 @@ package lsystem
 import (
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type LSystem struct {
@@ -107,21 +108,47 @@ func (l *LSystem) IsConstant(t Token) bool {
 
 func (l *LSystem) applyRules() {
 	input := l.MemPool.GetSwap()
+	n := len(input.BytePairs[0:input.Len])
+	numGoroutines := 4
+	chunkSize := n / numGoroutines
 
-	for _, token := range input.BytePairs[0:input.Len] {
-		numPart := token.Second()
-		if numPart != 0 {
-			numPart--
+	var wg sync.WaitGroup
+	// Use a slice of slices to store results
+	results := make([][]BytePair, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+		if i == numGoroutines-1 {
+			end = n
 		}
 
-		newToken := NewBytePair(token.First(), numPart)
-		rules := l.ByteRules[newToken]
-		if rules.Weights == nil {
-			l.MemPool.Append(newToken)
-			continue
-		}
+		wg.Add(1)
+		go func(idx, start, end int) {
+			defer wg.Done()
+			var output []BytePair
+			for _, token := range input.BytePairs[start:end] {
+				numPart := token.Second()
+				if numPart != 0 {
+					numPart--
+				}
+				newToken := NewBytePair(token.First(), numPart)
+				rules := l.ByteRules[newToken]
+				if rules.Weights == nil {
+					output = append(output, newToken)
+				} else {
+					output = append(output, rules.ChooseSuccessor()...)
+				}
+			}
+			results[idx] = output
+		}(i, start, end)
+	}
 
-		l.MemPool.AppendSlice(rules.ChooseSuccessor())
+	wg.Wait()
+
+	// Collect results in order
+	for i := 0; i < numGoroutines; i++ {
+		l.MemPool.AppendSlice(results[i])
 	}
 
 	l.MemPool.Swap()
