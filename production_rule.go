@@ -1,7 +1,7 @@
 package lsystem
 
 import (
-	"math/rand"
+	"pgregory.net/rand"
 	"strconv"
 	"strings"
 )
@@ -60,8 +60,9 @@ func (r *ProductionRule) ChooseSuccessor() []Token {
 }
 
 type ByteWeightedRule struct {
-	Probability float64
-	Successor   []BytePair
+	LowerLimit float64
+	UpperLimit float64
+	Successor  []BytePair
 }
 
 type ByteProductionRule struct {
@@ -75,7 +76,8 @@ func (r *ProductionRule) encodeTokens(tokenBytes map[Token]BytePair) ByteProduct
 		Weights:     make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
 	}
 
-	for w := len(r.Weights) - 1; w >= 0; w-- {
+	total := 0.0
+	for w := 0; w < len(r.Weights); w++ {
 		wt := r.Weights[w]
 		encodedTokens := make([]BytePair, len(wt.Tokens), len(wt.Tokens))
 		for i := len(wt.Tokens) - 1; i >= 0; i-- {
@@ -83,24 +85,32 @@ func (r *ProductionRule) encodeTokens(tokenBytes map[Token]BytePair) ByteProduct
 			encodedTokens[i] = tokenBytes[t]
 		}
 		rule.Weights[w] = ByteWeightedRule{
-			Probability: wt.Probability,
-			Successor:   encodedTokens,
+			Successor: encodedTokens,
 		}
+		rule.Weights[w].LowerLimit = total
+		total += wt.Probability
+		rule.Weights[w].UpperLimit = total
 	}
 
 	return rule
 }
 
 func (bp *ByteProductionRule) ChooseSuccessor() []BytePair {
-	total := 0.0
-	for _, wt := range bp.Weights {
-		total += wt.Probability
-	}
-	random := rand.Float64() * total
-	for _, wt := range bp.Weights {
-		random -= wt.Probability
-		if random < 0 {
-			return wt.Successor
+	random := rand.Float64()
+	return bp.findSuccessorByProbability(random)
+}
+
+func (bp *ByteProductionRule) findSuccessorByProbability(p float64) []BytePair {
+	// Use binary search to find the successor
+	lo, hi := 0, len(bp.Weights)
+	for lo < hi {
+		mid := (lo + hi) / 2
+		if p < bp.Weights[mid].LowerLimit {
+			hi = mid
+		} else if p >= bp.Weights[mid].UpperLimit {
+			lo = mid + 1
+		} else {
+			return bp.Weights[mid].Successor
 		}
 	}
 	return []BytePair{}
