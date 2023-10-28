@@ -28,6 +28,22 @@ func BenchmarkLSystemIterate10(b *testing.B) {
 		ls.IterateUntil(10)
 	}
 }
+
+func BenchmarkLSystemIterate10AB(b *testing.B) {
+	rulesStr := map[Token]string{
+		"A": "1 A B",
+		"B": "1 A",
+	}
+
+	vars, consts, rules := ParseRules(rulesStr)
+	lsys := NewLSystem("A", rules, vars, consts)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		lsys.IterateUntil(15)
+	}
+}
+
 func BenchmarkLSystemIterate50(b *testing.B) {
 	vars, consts, rules := ParseRules(benchmarkRules)
 	ls := NewLSystem("Seed", rules, vars, consts)
@@ -92,15 +108,14 @@ func TestCounterVariables(t *testing.T) {
 	ls := NewLSystem("Seed", rules, vars, consts)
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.MemPool.GetSwap().BytePairs[0:ls.MemPool.GetSwap().Len]))
+	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.BufferPool.GetSwap().BytePairs[0:ls.BufferPool.GetSwap().Len]))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S2"}, ls.DecodeBytes(ls.MemPool.GetSwap().BytePairs[0:ls.MemPool.GetSwap().Len]))
+	assertState(t, []Token{"L", "u", "S2"}, ls.DecodeBytes(ls.BufferPool.GetSwap().BytePairs[0:ls.BufferPool.GetSwap().Len]))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.MemPool.GetSwap().BytePairs[0:ls.MemPool.GetSwap().Len]))
+	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.BufferPool.GetSwap().BytePairs[0:ls.BufferPool.GetSwap().Len]))
 }
-
 func assertState(t *testing.T, expected, actual []Token) {
 	assert.Equal(t, len(expected), len(actual))
 	assert.EqualValues(t, expected, actual)

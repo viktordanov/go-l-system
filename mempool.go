@@ -6,6 +6,33 @@ type Buffer struct {
 	Cap       int
 }
 
+func (m *Buffer) Append(bp BytePair) {
+	if m.Len >= m.Cap {
+		m.Grow()
+	}
+
+	m.BytePairs[m.Len] = bp
+	m.Len++
+}
+
+func (m *Buffer) AppendSlice(bps []BytePair) {
+	if m.Len+len(bps) > m.Cap {
+		m.Grow()
+	}
+
+	copy(m.BytePairs[m.Len:], bps)
+	m.Len += len(bps)
+}
+
+func (m *Buffer) Grow() {
+	newCap := m.Cap * 2
+	m.Cap = newCap
+
+	newSlice := make([]BytePair, newCap)
+	copy(newSlice, m.BytePairs)
+	m.BytePairs = newSlice
+}
+
 type BufferPool struct {
 	active   *Buffer
 	inactive *Buffer
@@ -104,4 +131,55 @@ func (m *BufferPool) Swap() {
 
 func (m *BufferPool) ResetWritingHead() {
 	m.GetActive().Len = 0
+}
+
+type MemPool struct {
+	readBuffers  [4]*Buffer
+	writeBuffers [4]*Buffer
+
+	swap bool
+}
+
+func NewMemPool(capacity int) *MemPool {
+	readBuffers := [4]*Buffer{}
+	writeBuffers := [4]*Buffer{}
+
+	for i := 0; i < 4; i++ {
+		readBuffers[i] = &Buffer{
+			BytePairs: make([]BytePair, capacity),
+			Len:       0,
+			Cap:       capacity,
+		}
+
+		writeBuffers[i] = &Buffer{
+			BytePairs: make([]BytePair, capacity),
+			Len:       0,
+			Cap:       capacity,
+		}
+	}
+
+	return &MemPool{
+		readBuffers:  readBuffers,
+		writeBuffers: writeBuffers,
+
+		swap: false,
+	}
+}
+
+func (m *MemPool) GetReadBuffer(idx int) *Buffer {
+	if m.swap {
+		return m.writeBuffers[idx]
+	}
+	return m.readBuffers[idx]
+}
+
+func (m *MemPool) GetWriteBuffer(idx int) *Buffer {
+	if m.swap {
+		return m.readBuffers[idx]
+	}
+	return m.writeBuffers[idx]
+}
+
+func (m *MemPool) Swap() {
+	m.swap = !m.swap
 }
