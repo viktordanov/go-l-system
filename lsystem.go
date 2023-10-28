@@ -3,7 +3,6 @@ package lsystem
 import (
 	"strconv"
 	"strings"
-	"sync"
 )
 
 type LSystem struct {
@@ -15,16 +14,18 @@ type LSystem struct {
 	TokenBytes map[Token]BytePair
 	BytesToken map[BytePair]Token
 	ByteRules  [65535]ByteProductionRule
-	MemPool    *BufferPool
+	BufferPool *BufferPool
+	MemPool    *MemPool
 }
 
 func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet) *LSystem {
 	lSystem := &LSystem{
-		Axiom:     axiom,
-		Rules:     rulesMap,
-		Variables: vars,
-		Constants: consts,
-		MemPool:   NewBufferPool(1024),
+		Axiom:      axiom,
+		Rules:      rulesMap,
+		Variables:  vars,
+		Constants:  consts,
+		BufferPool: NewBufferPool(32),
+		MemPool:    NewMemPool(32),
 	}
 
 	lSystem.encodeTokens()
@@ -95,64 +96,26 @@ func (l *LSystem) IsConstant(t Token) bool {
 	return l.Constants.Contains(t)
 }
 
-// TODO: Optimizations to do:
-// 1) use an array for the rules and represent variables and constatns as int8s (indices in the array)
-// to completely circumvent the map lookups
-// 2) store a counter for each variable to avoid parsing the variable name and number every time
-// -1 for no number, any other number means it's stateful
-// 3) think about a better way to do random selection
-// 4) implement a memory pool which automatically grows when necessary
-// it will start off as 2 big preallocated arrays, one for the current state and one for the next state
-// which will be swapped after each iteration and the other one will be overwritten in-place (store their length as well)
-// Also make apply rules work in-place instead of allocating a new array and returning it
-
 func (l *LSystem) applyRules() {
-	input := l.MemPool.GetSwap()
-	n := len(input.BytePairs[0:input.Len])
-	numGoroutines := 4
-	chunkSize := n / numGoroutines
+	input := l.BufferPool.GetSwap()
 
-	var wg sync.WaitGroup
-	// Use a slice of slices to store results
-	results := make([][]BytePair, numGoroutines)
-
-	for i := 0; i < numGoroutines; i++ {
-		start := i * chunkSize
-		end := start + chunkSize
-		if i == numGoroutines-1 {
-			end = n
+	for _, token := range input.BytePairs[0:input.Len] {
+		numPart := token.Second()
+		if numPart != 0 {
+			numPart--
 		}
 
-		wg.Add(1)
-		go func(idx, start, end int) {
-			defer wg.Done()
-			var output []BytePair
-			for _, token := range input.BytePairs[start:end] {
-				numPart := token.Second()
-				if numPart != 0 {
-					numPart--
-				}
-				newToken := NewBytePair(token.First(), numPart)
-				rules := l.ByteRules[newToken]
-				if rules.Weights == nil {
-					output = append(output, newToken)
-				} else {
-					output = append(output, rules.ChooseSuccessor()...)
-				}
-			}
-			results[idx] = output
-		}(i, start, end)
+		newToken := NewBytePair(token.First(), numPart)
+		rules := l.ByteRules[newToken]
+		if rules.Weights == nil {
+			l.BufferPool.Append(newToken)
+			continue
+		}
+
+		l.BufferPool.AppendSlice(rules.ChooseSuccessor())
 	}
-
-	wg.Wait()
-
-	// Collect results in order
-	for i := 0; i < numGoroutines; i++ {
-		l.MemPool.AppendSlice(results[i])
-	}
-
-	l.MemPool.Swap()
-	l.MemPool.ResetWritingHead()
+	l.BufferPool.Swap()
+	l.BufferPool.ResetWritingHead()
 }
 
 func (l *LSystem) IterateUntil(n int) []BytePair {
@@ -160,7 +123,7 @@ func (l *LSystem) IterateUntil(n int) []BytePair {
 	for i := 0; i < n; i++ {
 		l.applyRules()
 	}
-	return l.MemPool.GetSwap().BytePairs[:l.MemPool.GetSwap().Len]
+	return l.BufferPool.GetSwap().BytePairs[:l.BufferPool.GetSwap().Len]
 }
 
 func (l *LSystem) Iterate(n int) []BytePair {
@@ -168,7 +131,7 @@ func (l *LSystem) Iterate(n int) []BytePair {
 		l.applyRules()
 	}
 
-	return l.MemPool.GetSwap().BytePairs[:l.MemPool.GetSwap().Len]
+	return l.BufferPool.GetSwap().BytePairs[:l.BufferPool.GetSwap().Len]
 }
 
 func (l *LSystem) IterateOnce() []BytePair {
@@ -185,7 +148,7 @@ func (l *LSystem) String() string {
 }
 
 func (l *LSystem) Reset() {
-	l.MemPool.Reset()
-	l.MemPool.GetSwap().BytePairs[0] = l.TokenBytes[l.Axiom]
-	l.MemPool.GetSwap().Len = 1
+	l.BufferPool.Reset()
+	l.BufferPool.GetSwap().BytePairs[0] = l.TokenBytes[l.Axiom]
+	l.BufferPool.GetSwap().Len = 1
 }
