@@ -36,7 +36,13 @@ func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, c
 func (l *LSystem) Recreate(byteRules [255]ByteProductionRule) *LSystem {
 	clone := *l
 	clone.ByteRules = byteRules
-	clone.MemPool = NewMemPool(32)
+	return &clone
+}
+
+func (l *LSystem) RecreateWithMemPool(byteRules [255]ByteProductionRule, pool *MemPool) *LSystem {
+	clone := *l
+	clone.ByteRules = byteRules
+	clone.MemPool = pool
 	return &clone
 }
 
