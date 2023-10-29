@@ -71,7 +71,7 @@ type ByteProductionRule struct {
 	currentIndex      int
 }
 
-func (r *ProductionRule) encodeTokens(tokenBytes map[Token]TokenStateId) ByteProductionRule {
+func (r *ProductionRule) EncodeTokens(tokenBytes map[Token]TokenStateId) ByteProductionRule {
 	rule := ByteProductionRule{
 		Weights: make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
 	}

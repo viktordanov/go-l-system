@@ -84,7 +84,7 @@ func (l *LSystem) encodeTokens() {
 
 	l.ByteRules = [255]ByteProductionRule{}
 	for t, rule := range l.Rules {
-		l.ByteRules[l.TokenBytes[t]] = rule.encodeTokens(l.TokenBytes)
+		l.ByteRules[l.TokenBytes[t]] = rule.EncodeTokens(l.TokenBytes)
 	}
 }
 
