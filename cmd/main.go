@@ -34,7 +34,6 @@ func main() {
 	lsys := NewLSystem("A", rules, vars, consts)
 
 	for i := 0; i < 100; i++ {
-		//fmt.Println("Iteration", i)
 		lsys.Reset()
 		lsys.IterateUntil(30)
 	}

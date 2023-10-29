@@ -136,11 +136,16 @@ func (l *LSystem) applyRulesOnce(input, output *Buffer) {
 
 func (l *LSystem) IterateUntil(n int) []TokenStateId {
 	l.Reset()
-	if n >= 5 {
-		n -= 5
-		l.prime(5)
+	if n >= 15 {
+		n -= 10
+		l.prime(10)
+		l.applyRules(n)
+	} else {
+		for i := 0; i < n; i++ {
+			l.applyRulesOnce(l.MemPool.GetReadBuffer(0), l.MemPool.GetWriteBuffer(0))
+			l.MemPool.Swap(0)
+		}
 	}
-	l.applyRules(n)
 	return l.MemPool.ReadAll()
 }
 
