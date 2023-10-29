@@ -33,6 +33,13 @@ func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, c
 	return lSystem
 }
 
+func (l *LSystem) Recreate(byteRules [255]ByteProductionRule) *LSystem {
+	clone := *l
+	clone.ByteRules = byteRules
+	clone.MemPool = NewMemPool(32)
+	return &clone
+}
+
 func (l *LSystem) encodeTokens() {
 	l.TokenBytes = make(map[Token]TokenStateId)
 	l.BytesToken = make(map[TokenStateId]Token)
