@@ -8,7 +8,7 @@ type Buffer struct {
 
 func (m *Buffer) Append(bp TokenStateId) {
 	if m.Len >= m.Cap {
-		m.Grow()
+		m.Grow(m.Len)
 	}
 
 	m.BytePairs[m.Len] = bp
@@ -17,15 +17,15 @@ func (m *Buffer) Append(bp TokenStateId) {
 
 func (m *Buffer) AppendSlice(bps []TokenStateId) {
 	if m.Len+len(bps) > m.Cap {
-		m.Grow()
+		m.Grow(m.Len + len(bps))
 	}
 
 	copy(m.BytePairs[m.Len:], bps)
 	m.Len += len(bps)
 }
 
-func (m *Buffer) Grow() {
-	newCap := m.Cap * 2
+func (m *Buffer) Grow(atLeast int) {
+	newCap := int(float32(atLeast) * 1.5)
 	m.Cap = newCap
 
 	newSlice := make([]TokenStateId, newCap)
