@@ -96,6 +96,27 @@ func (r *ProductionRule) encodeTokens(tokenBytes map[Token]TokenStateId) BytePro
 	return rule
 }
 
+func (bp *ByteProductionRule) RandomizeWeights(delta float64) {
+	currentWeights := make([]float64, len(bp.Weights), len(bp.Weights))
+	for i := 0; i < len(bp.Weights); i++ {
+		currentWeights[i] = bp.Weights[i].UpperLimit - bp.Weights[i].LowerLimit
+	}
+
+	total := 0.0
+	for i := 0; i < len(bp.Weights); i++ {
+		random := rand.Float64()
+		_, tokens := bp.findSuccessorByProbability(random)
+		for _, token := range tokens {
+			currentWeights[token] += delta - rand.Float64()*2*delta
+		}
+
+		bp.Weights[i].LowerLimit = total
+		total += currentWeights[i]
+		bp.Weights[i].UpperLimit = total
+	}
+	bp.PreSample()
+}
+
 func (bp *ByteProductionRule) PreSample() {
 	if bp.PreSampledWeights == nil {
 		bp.PreSampledWeights = make([]uint8, 256, 256)
