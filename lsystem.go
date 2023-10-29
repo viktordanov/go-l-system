@@ -155,6 +155,10 @@ func (l *LSystem) prime(n int) {
 		l.MemPool.Swap(0)
 	}
 
+	l.distribute()
+}
+
+func (l *LSystem) distribute() {
 	chunkSize := l.MemPool.GetReadBuffer(0).Len / threadCount
 	for i := 0; i < threadCount; i++ {
 		from := i * chunkSize
