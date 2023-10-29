@@ -20,16 +20,7 @@ func BenchmarkParseRules(b *testing.B) {
 	}
 }
 
-func BenchmarkLSystemIterate10(b *testing.B) {
-	vars, consts, rules := ParseRules(benchmarkRules)
-	ls := NewLSystem("Seed", rules, vars, consts)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ls.IterateUntil(10)
-	}
-}
-
-func BenchmarkLSystemIterate10AB(b *testing.B) {
+func BenchmarkLSystemIterateAB(b *testing.B) {
 	rulesStr := map[Token]string{
 		"A": "1 A B",
 		"B": "1 A",
@@ -38,26 +29,46 @@ func BenchmarkLSystemIterate10AB(b *testing.B) {
 	vars, consts, rules := ParseRules(rulesStr)
 	lsys := NewLSystem("A", rules, vars, consts)
 
+	tests := []struct {
+		name  string
+		iters int
+	}{
+		{"10", 10},
+		{"20", 20},
+		{"30", 30},
+		{"40", 40},
+	}
+
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		lsys.IterateUntil(15)
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				lsys.IterateUntil(tt.iters)
+			}
+		})
 	}
 }
 
-func BenchmarkLSystemIterate50(b *testing.B) {
+func BenchmarkLSystemIterate(b *testing.B) {
 	vars, consts, rules := ParseRules(benchmarkRules)
 	ls := NewLSystem("Seed", rules, vars, consts)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ls.IterateUntil(50)
+	tests := []struct {
+		name  string
+		iters int
+	}{
+		{"10", 10},
+		{"20", 20},
+		{"30", 30},
+		{"100", 100},
 	}
-}
-func BenchmarkLSystemIterate100(b *testing.B) {
-	vars, consts, rules := ParseRules(benchmarkRules)
-	ls := NewLSystem("Seed", rules, vars, consts)
+
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ls.IterateUntil(100)
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ls.IterateUntil(tt.iters)
+			}
+		})
 	}
 }
 
