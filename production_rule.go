@@ -97,9 +97,11 @@ func (r *ProductionRule) encodeTokens(tokenBytes map[Token]TokenStateId) BytePro
 }
 
 func (bp *ByteProductionRule) PreSample() {
-	bp.PreSampledWeights = make([]uint8, 256, 256)
+	if bp.PreSampledWeights == nil {
+		bp.PreSampledWeights = make([]uint8, 256, 256)
+	}
 	for i := 0; i < 256; i++ {
-		random := rand.Float64()
+		random := rand.Float64() * (bp.Weights[len(bp.Weights)-1].UpperLimit)
 		index, _ := bp.findSuccessorByProbability(random)
 		bp.PreSampledWeights[i] = index
 	}
@@ -114,7 +116,7 @@ func (bp *ByteProductionRule) ChooseSuccessor() []TokenStateId {
 		}
 		return tokens
 	}
-	random := rand.Float64()
+	random := rand.Float64() * (bp.Weights[len(bp.Weights)-1].UpperLimit)
 	_, tokens := bp.findSuccessorByProbability(random)
 	return tokens
 }
