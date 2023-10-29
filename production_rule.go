@@ -66,7 +66,6 @@ type ByteWeightedRule struct {
 }
 
 type ByteProductionRule struct {
-	Predecessor       TokenStateId
 	Weights           []ByteWeightedRule
 	PreSampledWeights []uint8
 	currentIndex      int
@@ -74,8 +73,7 @@ type ByteProductionRule struct {
 
 func (r *ProductionRule) encodeTokens(tokenBytes map[Token]TokenStateId) ByteProductionRule {
 	rule := ByteProductionRule{
-		Predecessor: tokenBytes[r.Predecessor],
-		Weights:     make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
+		Weights: make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
 	}
 
 	total := 0.0
