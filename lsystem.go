@@ -81,6 +81,14 @@ func (l *LSystem) encodeTokens() {
 	}
 }
 
+func (l *LSystem) EncodeTokens(tokens []Token) []TokenStateId {
+	result := make([]TokenStateId, 0, len(tokens))
+	for _, t := range tokens {
+		result = append(result, l.TokenBytes[t])
+	}
+	return result
+}
+
 func (l *LSystem) DecodeBytes(bp []TokenStateId) []Token {
 	result := make([]Token, 0, len(bp))
 	for _, bytePair := range bp {
