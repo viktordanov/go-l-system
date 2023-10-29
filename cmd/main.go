@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -35,6 +36,7 @@ func main() {
 
 	for i := 0; i < 100; i++ {
 		lsys.Reset()
-		lsys.IterateUntil(30)
+		lsys.IterateUntil(15)
 	}
+	fmt.Println(lsys.DecodeBytes(lsys.MemPool.ReadAll()))
 }
