@@ -3,6 +3,7 @@ package lsystem
 import (
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type LSystem struct {
@@ -14,18 +15,16 @@ type LSystem struct {
 	TokenBytes map[Token]BytePair
 	BytesToken map[BytePair]Token
 	ByteRules  [65535]ByteProductionRule
-	BufferPool *BufferPool
 	MemPool    *MemPool
 }
 
 func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet) *LSystem {
 	lSystem := &LSystem{
-		Axiom:      axiom,
-		Rules:      rulesMap,
-		Variables:  vars,
-		Constants:  consts,
-		BufferPool: NewBufferPool(32),
-		MemPool:    NewMemPool(32),
+		Axiom:     axiom,
+		Rules:     rulesMap,
+		Variables: vars,
+		Constants: consts,
+		MemPool:   NewMemPool(32),
 	}
 
 	lSystem.encodeTokens()
@@ -96,10 +95,25 @@ func (l *LSystem) IsConstant(t Token) bool {
 	return l.Constants.Contains(t)
 }
 
-func (l *LSystem) applyRules() {
-	input := l.BufferPool.GetSwap()
+func (l *LSystem) applyRules(n int) {
+	var wg sync.WaitGroup
+	for i := 0; i < threadCount; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
 
-	for _, token := range input.BytePairs[0:input.Len] {
+			for j := 0; j < n; j++ {
+				l.applyRulesOnce(l.MemPool.GetReadBuffer(i), l.MemPool.GetWriteBuffer(i))
+				l.MemPool.Swap(i)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func (l *LSystem) applyRulesOnce(input, output *Buffer) {
+	for _, token := range input.BytePairs[:input.Len] {
 		numPart := token.Second()
 		if numPart != 0 {
 			numPart--
@@ -108,30 +122,49 @@ func (l *LSystem) applyRules() {
 		newToken := NewBytePair(token.First(), numPart)
 		rules := l.ByteRules[newToken]
 		if rules.Weights == nil {
-			l.BufferPool.Append(newToken)
+			output.Append(newToken)
 			continue
 		}
 
-		l.BufferPool.AppendSlice(rules.ChooseSuccessor())
+		output.AppendSlice(rules.ChooseSuccessor())
 	}
-	l.BufferPool.Swap()
-	l.BufferPool.ResetWritingHead()
 }
 
 func (l *LSystem) IterateUntil(n int) []BytePair {
 	l.Reset()
-	for i := 0; i < n; i++ {
-		l.applyRules()
+	if n >= 5 {
+		n -= 5
+		l.prime(5)
 	}
-	return l.BufferPool.GetSwap().BytePairs[:l.BufferPool.GetSwap().Len]
+	l.applyRules(n)
+	return l.MemPool.ReadAll()
+}
+
+func (l *LSystem) prime(n int) {
+	for i := 0; i < n; i++ {
+		l.applyRulesOnce(l.MemPool.GetReadBuffer(0), l.MemPool.GetWriteBuffer(0))
+		l.MemPool.Swap(0)
+	}
+
+	chunkSize := l.MemPool.GetReadBuffer(0).Len / threadCount
+	for i := 0; i < threadCount; i++ {
+		from := i * chunkSize
+		to := from + chunkSize
+		if i == threadCount-1 {
+			to = l.MemPool.GetReadBuffer(0).Len
+		}
+
+		l.MemPool.GetWriteBuffer(i).AppendSlice(l.MemPool.GetReadBuffer(0).BytePairs[from:to])
+	}
+	for i := 0; i < threadCount; i++ {
+		l.MemPool.Swap(i)
+	}
 }
 
 func (l *LSystem) Iterate(n int) []BytePair {
-	for i := 0; i < n; i++ {
-		l.applyRules()
-	}
+	l.applyRules(n)
 
-	return l.BufferPool.GetSwap().BytePairs[:l.BufferPool.GetSwap().Len]
+	return l.MemPool.ReadAll()
 }
 
 func (l *LSystem) IterateOnce() []BytePair {
@@ -148,7 +181,7 @@ func (l *LSystem) String() string {
 }
 
 func (l *LSystem) Reset() {
-	l.BufferPool.Reset()
-	l.BufferPool.GetSwap().BytePairs[0] = l.TokenBytes[l.Axiom]
-	l.BufferPool.GetSwap().Len = 1
+	l.MemPool.Reset()
+	l.MemPool.GetReadBuffer(0).Append(l.TokenBytes[l.Axiom])
+	l.MemPool.GetReadBuffer(0).Len = 1
 }

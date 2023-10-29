@@ -108,35 +108,15 @@ func TestCounterVariables(t *testing.T) {
 	ls := NewLSystem("Seed", rules, vars, consts)
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.BufferPool.GetSwap().BytePairs[0:ls.BufferPool.GetSwap().Len]))
+	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "S2"}, ls.DecodeBytes(ls.BufferPool.GetSwap().BytePairs[0:ls.BufferPool.GetSwap().Len]))
+	assertState(t, []Token{"L", "u", "S2"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
 
 	ls.IterateOnce()
-	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.BufferPool.GetSwap().BytePairs[0:ls.BufferPool.GetSwap().Len]))
+	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
 }
 func assertState(t *testing.T, expected, actual []Token) {
 	assert.Equal(t, len(expected), len(actual))
 	assert.EqualValues(t, expected, actual)
-}
-
-func TestMemoryPool(t *testing.T) {
-	pool := NewBufferPool(2)
-	bp := NewBytePair(1, 2)
-	for i := 0; i < 10; i++ {
-		pool.Append(bp)
-	}
-
-	assert.Equal(t, 16, pool.GetCap())
-	assert.EqualValues(t, []BytePair{bp, bp, bp, bp, bp, bp, bp, bp, bp, bp}, pool.GetActive().BytePairs[:10])
-
-	pool.Swap()
-	assert.EqualValues(t, []BytePair{bp, bp, bp, bp, bp, bp, bp, bp, bp, bp}, pool.GetSwap().BytePairs[:10])
-	pool.ResetWritingHead()
-	for i := 0; i < 10; i++ {
-		pool.Append(bp)
-	}
-	assert.Equal(t, 16, pool.GetCap())
-	assert.EqualValues(t, []BytePair{bp, bp, bp, bp, bp, bp, bp, bp, bp, bp}, pool.GetActive().BytePairs[:10])
 }
