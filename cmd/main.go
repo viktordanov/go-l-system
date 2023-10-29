@@ -36,7 +36,7 @@ func main() {
 
 	for i := 0; i < 100; i++ {
 		lsys.Reset()
-		lsys.IterateUntil(15)
+		lsys.IterateUntil(7)
 	}
 	fmt.Println(lsys.DecodeBytes(lsys.MemPool.ReadAll()))
 }

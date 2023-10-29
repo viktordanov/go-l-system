@@ -13,7 +13,7 @@ type LSystem struct {
 	Constants TokenSet
 
 	TokenBytes map[Token]TokenStateId
-	BytesToken map[TokenStateId]Token
+	BytesToken [255]Token
 	ByteRules  [255]ByteProductionRule
 	Params     [128]uint8
 	MemPool    *MemPool
@@ -48,7 +48,7 @@ func (l *LSystem) RecreateWithMemPool(byteRules [255]ByteProductionRule, pool *M
 
 func (l *LSystem) encodeTokens() {
 	l.TokenBytes = make(map[Token]TokenStateId)
-	l.BytesToken = make(map[TokenStateId]Token)
+	l.BytesToken = [255]Token{}
 	i := uint8(0)
 
 	statefulVarParams := make(map[Token]uint8)
@@ -105,7 +105,9 @@ func (l *LSystem) EncodeTokens(tokens []Token) []TokenStateId {
 func (l *LSystem) DecodeBytes(bp []TokenStateId) []Token {
 	result := make([]Token, 0, len(bp))
 	for _, bytePair := range bp {
-		v, exists := l.BytesToken[bytePair]
+		//v, exists := l.BytesToken[bytePair]
+		v := l.BytesToken[bytePair]
+		exists := v != ""
 		if !exists {
 			base := bytePair.TokenId()
 			v = l.BytesToken[NewTokenStateId(base, false)]
