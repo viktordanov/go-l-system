@@ -105,6 +105,7 @@ func (bp *ByteProductionRule) RandomizeWeights(delta float64) {
 	total := 0.0
 	for i := 0; i < len(bp.Weights); i++ {
 		currentWeights[i] += delta - rand.Float64()*2*delta
+		currentWeights[i] = max(0, currentWeights[i])
 
 		bp.Weights[i].LowerLimit = total
 		total += currentWeights[i]
