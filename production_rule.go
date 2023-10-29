@@ -104,11 +104,7 @@ func (bp *ByteProductionRule) RandomizeWeights(delta float64) {
 
 	total := 0.0
 	for i := 0; i < len(bp.Weights); i++ {
-		random := rand.Float64()
-		_, tokens := bp.findSuccessorByProbability(random)
-		for _, token := range tokens {
-			currentWeights[token] += delta - rand.Float64()*2*delta
-		}
+		currentWeights[i] += delta - rand.Float64()*2*delta
 
 		bp.Weights[i].LowerLimit = total
 		total += currentWeights[i]
