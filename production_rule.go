@@ -156,3 +156,26 @@ func (bp *ByteProductionRule) findSuccessorByProbability(p float64) (uint8, []To
 	}
 	return 0, []TokenStateId{}
 }
+
+func (bp *ByteProductionRule) String(tokens [255]Token) string {
+	var sb strings.Builder
+	sb.WriteRune('"')
+	for i, wt := range bp.Weights {
+		if wt.Successor == nil || len(wt.Successor) == 0 {
+			continue
+		}
+		sb.WriteString(strconv.FormatFloat(wt.UpperLimit-wt.LowerLimit, 'f', 2, 64))
+		sb.WriteString(" ")
+		for i, t := range wt.Successor {
+			sb.WriteString(string(tokens[t]))
+			if i != len(wt.Successor)-1 {
+				sb.WriteString(" ")
+			}
+		}
+		if i != len(bp.Weights)-1 {
+			sb.WriteString(";")
+		}
+	}
+	sb.WriteRune('"')
+	return sb.String()
+}

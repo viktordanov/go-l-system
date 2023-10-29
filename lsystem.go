@@ -209,8 +209,12 @@ func (l *LSystem) IterateOnce() []TokenStateId {
 
 func (l *LSystem) String() string {
 	var sb strings.Builder
-	for _, rule := range l.Rules {
-		sb.WriteString(rule.String())
+	for tokenId, rule := range l.ByteRules {
+		if rule.Weights == nil {
+			continue
+		}
+		sb.WriteString("\"" + string(l.BytesToken[tokenId]) + "\": ")
+		sb.WriteString(rule.String(l.BytesToken))
 		sb.WriteString(",\n")
 	}
 	return sb.String()

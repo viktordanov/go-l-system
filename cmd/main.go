@@ -38,5 +38,8 @@ func main() {
 		lsys.Reset()
 		lsys.IterateUntil(7)
 	}
+
 	fmt.Println(lsys.DecodeBytes(lsys.MemPool.ReadAll()))
+
+	fmt.Println(lsys)
 }
