@@ -118,6 +118,9 @@ func (bp *ByteProductionRule) RandomizeWeights(delta float64) {
 }
 
 func (bp *ByteProductionRule) PreSample() {
+	if bp.Weights == nil || len(bp.Weights) == 0 {
+		return
+	}
 	if bp.PreSampledWeights == nil {
 		bp.PreSampledWeights = make([]uint8, 256, 256)
 	}
