@@ -62,15 +62,15 @@ func (r *ProductionRule) ChooseSuccessor() []Token {
 type ByteWeightedRule struct {
 	LowerLimit float64
 	UpperLimit float64
-	Successor  []BytePair
+	Successor  []TokenStateId
 }
 
 type ByteProductionRule struct {
-	Predecessor BytePair
+	Predecessor TokenStateId
 	Weights     []ByteWeightedRule
 }
 
-func (r *ProductionRule) encodeTokens(tokenBytes map[Token]BytePair) ByteProductionRule {
+func (r *ProductionRule) encodeTokens(tokenBytes map[Token]TokenStateId) ByteProductionRule {
 	rule := ByteProductionRule{
 		Predecessor: tokenBytes[r.Predecessor],
 		Weights:     make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
@@ -79,7 +79,7 @@ func (r *ProductionRule) encodeTokens(tokenBytes map[Token]BytePair) ByteProduct
 	total := 0.0
 	for w := 0; w < len(r.Weights); w++ {
 		wt := r.Weights[w]
-		encodedTokens := make([]BytePair, len(wt.Tokens), len(wt.Tokens))
+		encodedTokens := make([]TokenStateId, len(wt.Tokens), len(wt.Tokens))
 		for i := len(wt.Tokens) - 1; i >= 0; i-- {
 			t := wt.Tokens[i]
 			encodedTokens[i] = tokenBytes[t]
@@ -95,12 +95,12 @@ func (r *ProductionRule) encodeTokens(tokenBytes map[Token]BytePair) ByteProduct
 	return rule
 }
 
-func (bp *ByteProductionRule) ChooseSuccessor() []BytePair {
+func (bp *ByteProductionRule) ChooseSuccessor() []TokenStateId {
 	random := rand.Float64()
 	return bp.findSuccessorByProbability(random)
 }
 
-func (bp *ByteProductionRule) findSuccessorByProbability(p float64) []BytePair {
+func (bp *ByteProductionRule) findSuccessorByProbability(p float64) []TokenStateId {
 	// Use binary search to find the successor
 	lo, hi := 0, len(bp.Weights)
 	for lo < hi {
@@ -113,5 +113,5 @@ func (bp *ByteProductionRule) findSuccessorByProbability(p float64) []BytePair {
 			return bp.Weights[mid].Successor
 		}
 	}
-	return []BytePair{}
+	return []TokenStateId{}
 }

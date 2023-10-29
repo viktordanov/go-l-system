@@ -1,15 +1,19 @@
 package lsystem
 
-type BytePair uint16
+type TokenStateId uint8
 
-func (bt BytePair) First() uint8 {
-	return uint8(bt >> 8)
+func (bt TokenStateId) TokenId() uint8 {
+	return uint8(bt & 0x7F)
 }
 
-func (bt BytePair) Second() uint8 {
-	return uint8(bt & 0xFF)
+func (bt TokenStateId) HasParam() bool {
+	return bt&0x80 != 0
 }
 
-func NewBytePair(first, second uint8) BytePair {
-	return BytePair(uint16(first)<<8 | uint16(second))
+func NewTokenStateId(tokenId uint8, hasParam bool) TokenStateId {
+	if hasParam {
+		tokenId |= uint8(0x80)
+	}
+
+	return TokenStateId(tokenId)
 }

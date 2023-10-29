@@ -85,16 +85,16 @@ func BenchmarkChooseSuccessorBytes(b *testing.B) {
 
 func BenchmarkByteTokenPacking(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewBytePair(121, 116)
+		NewTokenStateId(121, true)
 	}
 }
 
 func BenchmarkByteTokenUnpacking(b *testing.B) {
-	t := NewBytePair(121, 116)
+	t := NewTokenStateId(121, true)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		t.First()
-		t.Second()
+		t.TokenId()
+		t.HasParam()
 	}
 }
 
