@@ -12,9 +12,10 @@ type LSystem struct {
 	Variables TokenSet
 	Constants TokenSet
 
-	TokenBytes map[Token]BytePair
-	BytesToken map[BytePair]Token
-	ByteRules  [65535]ByteProductionRule
+	TokenBytes map[Token]TokenStateId
+	BytesToken map[TokenStateId]Token
+	ByteRules  [255]ByteProductionRule
+	Params     [255]uint8
 	MemPool    *MemPool
 }
 
@@ -33,54 +34,60 @@ func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, c
 }
 
 func (l *LSystem) encodeTokens() {
-	l.TokenBytes = make(map[Token]BytePair)
-	l.BytesToken = make(map[BytePair]Token)
+	l.TokenBytes = make(map[Token]TokenStateId)
+	l.BytesToken = make(map[TokenStateId]Token)
 	i := uint8(0)
+
+	statefulVarParams := make(map[Token]uint8)
 	for t := range l.Variables {
 		baseVar, numberState, isStateful := tryParseStatefulVariable(t)
 		if isStateful {
-			// active encode base variable
 			baseVar := Token(baseVar)
-			baseBytes, exists := l.TokenBytes[baseVar]
-			if !exists {
-				bytePair := NewBytePair(i, 0)
-				l.TokenBytes[baseVar] = bytePair
-				l.BytesToken[bytePair] = baseVar
-
-				baseBytes = bytePair
+			if _, exists := statefulVarParams[baseVar]; !exists {
+				statefulVarParams[baseVar] = numberState
 			}
-
-			bytePair := NewBytePair(baseBytes.First(), numberState)
-			l.TokenBytes[Token(string(baseVar)+strconv.Itoa(int(numberState)))] = bytePair
-			l.BytesToken[bytePair] = Token(string(baseVar) + strconv.Itoa(int(numberState)))
-
+			statefulVarParams[baseVar] = max(numberState, statefulVarParams[baseVar])
 		} else {
-			bytePair := NewBytePair(i, 0)
+			bytePair := NewTokenStateId(i, false)
 			l.TokenBytes[t] = bytePair
 			l.BytesToken[bytePair] = t
+			i++
 		}
-		i++
 	}
+
 	for t := range l.Constants {
-		bytePair := NewBytePair(i, 0)
+		bytePair := NewTokenStateId(i, false)
 		l.TokenBytes[t] = bytePair
 		l.BytesToken[bytePair] = t
 		i++
 	}
 
-	l.ByteRules = [65535]ByteProductionRule{}
+	j := 0
+	for baseVar, maxState := range statefulVarParams {
+		minIndex := 1
+		maxIndex := int(maxState)
+		for k := minIndex; k <= maxIndex; k++ {
+			bytePair := NewTokenStateId(uint8(j), true)
+			l.TokenBytes[Token(string(baseVar)+strconv.Itoa(k))] = bytePair
+			l.BytesToken[bytePair] = Token(string(baseVar) + strconv.Itoa(k))
+			l.Params[j] = uint8(k)
+			j++
+		}
+	}
+
+	l.ByteRules = [255]ByteProductionRule{}
 	for t, rule := range l.Rules {
 		l.ByteRules[l.TokenBytes[t]] = rule.encodeTokens(l.TokenBytes)
 	}
 }
 
-func (l *LSystem) DecodeBytes(bp []BytePair) []Token {
+func (l *LSystem) DecodeBytes(bp []TokenStateId) []Token {
 	result := make([]Token, 0, len(bp))
 	for _, bytePair := range bp {
 		v, exists := l.BytesToken[bytePair]
 		if !exists {
-			base := bytePair.First()
-			v = Token(string(l.BytesToken[NewBytePair(base, 0)]) + strconv.Itoa(int(bytePair.Second())))
+			base := bytePair.TokenId()
+			v = l.BytesToken[NewTokenStateId(base, false)]
 		}
 		result = append(result, v)
 	}
@@ -114,15 +121,12 @@ func (l *LSystem) applyRules(n int) {
 
 func (l *LSystem) applyRulesOnce(input, output *Buffer) {
 	for _, token := range input.BytePairs[:input.Len] {
-		numPart := token.Second()
-		if numPart != 0 {
-			numPart--
+		if token.HasParam() && l.Params[token.TokenId()] > 1 {
+			token--
 		}
-
-		newToken := NewBytePair(token.First(), numPart)
-		rules := l.ByteRules[newToken]
+		rules := l.ByteRules[token]
 		if rules.Weights == nil {
-			output.Append(newToken)
+			output.Append(token)
 			continue
 		}
 
@@ -130,7 +134,7 @@ func (l *LSystem) applyRulesOnce(input, output *Buffer) {
 	}
 }
 
-func (l *LSystem) IterateUntil(n int) []BytePair {
+func (l *LSystem) IterateUntil(n int) []TokenStateId {
 	l.Reset()
 	if n >= 5 {
 		n -= 5
@@ -161,13 +165,13 @@ func (l *LSystem) prime(n int) {
 	}
 }
 
-func (l *LSystem) Iterate(n int) []BytePair {
+func (l *LSystem) Iterate(n int) []TokenStateId {
 	l.applyRules(n)
 
 	return l.MemPool.ReadAll()
 }
 
-func (l *LSystem) IterateOnce() []BytePair {
+func (l *LSystem) IterateOnce() []TokenStateId {
 	return l.Iterate(1)
 }
 

@@ -1,12 +1,12 @@
 package lsystem
 
 type Buffer struct {
-	BytePairs []BytePair
+	BytePairs []TokenStateId
 	Len       int
 	Cap       int
 }
 
-func (m *Buffer) Append(bp BytePair) {
+func (m *Buffer) Append(bp TokenStateId) {
 	if m.Len >= m.Cap {
 		m.Grow()
 	}
@@ -15,7 +15,7 @@ func (m *Buffer) Append(bp BytePair) {
 	m.Len++
 }
 
-func (m *Buffer) AppendSlice(bps []BytePair) {
+func (m *Buffer) AppendSlice(bps []TokenStateId) {
 	if m.Len+len(bps) > m.Cap {
 		m.Grow()
 	}
@@ -28,7 +28,7 @@ func (m *Buffer) Grow() {
 	newCap := m.Cap * 2
 	m.Cap = newCap
 
-	newSlice := make([]BytePair, newCap)
+	newSlice := make([]TokenStateId, newCap)
 	copy(newSlice, m.BytePairs)
 	m.BytePairs = newSlice
 }
@@ -49,13 +49,13 @@ func NewMemPool(capacity int) *MemPool {
 
 	for i := 0; i < threadCount; i++ {
 		readBuffers[i] = &Buffer{
-			BytePairs: make([]BytePair, capacity),
+			BytePairs: make([]TokenStateId, capacity),
 			Len:       0,
 			Cap:       capacity,
 		}
 
 		writeBuffers[i] = &Buffer{
-			BytePairs: make([]BytePair, capacity),
+			BytePairs: make([]TokenStateId, capacity),
 			Len:       0,
 			Cap:       capacity,
 		}
@@ -109,8 +109,8 @@ func (m *MemPool) Reset() {
 	}
 }
 
-func (m *MemPool) ReadAll() []BytePair {
-	tokens := []BytePair{}
+func (m *MemPool) ReadAll() []TokenStateId {
+	tokens := []TokenStateId{}
 	for i := 0; i < threadCount; i++ {
 		buf := m.GetReadBuffer(i)
 		tokens = append(tokens, buf.BytePairs[:buf.Len]...)
