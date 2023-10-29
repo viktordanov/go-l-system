@@ -66,8 +66,10 @@ type ByteWeightedRule struct {
 }
 
 type ByteProductionRule struct {
-	Predecessor TokenStateId
-	Weights     []ByteWeightedRule
+	Predecessor       TokenStateId
+	Weights           []ByteWeightedRule
+	PreSampledWeights []uint8
+	currentIndex      int
 }
 
 func (r *ProductionRule) encodeTokens(tokenBytes map[Token]TokenStateId) ByteProductionRule {
@@ -92,15 +94,34 @@ func (r *ProductionRule) encodeTokens(tokenBytes map[Token]TokenStateId) BytePro
 		rule.Weights[w].UpperLimit = total
 	}
 
+	rule.PreSample()
 	return rule
 }
 
-func (bp *ByteProductionRule) ChooseSuccessor() []TokenStateId {
-	random := rand.Float64()
-	return bp.findSuccessorByProbability(random)
+func (bp *ByteProductionRule) PreSample() {
+	bp.PreSampledWeights = make([]uint8, 256, 256)
+	for i := 0; i < 256; i++ {
+		random := rand.Float64()
+		index, _ := bp.findSuccessorByProbability(random)
+		bp.PreSampledWeights[i] = index
+	}
 }
 
-func (bp *ByteProductionRule) findSuccessorByProbability(p float64) []TokenStateId {
+func (bp *ByteProductionRule) ChooseSuccessor() []TokenStateId {
+	if bp.PreSampledWeights != nil {
+		tokens := bp.Weights[bp.PreSampledWeights[bp.currentIndex]].Successor
+		bp.currentIndex++
+		if bp.currentIndex == len(bp.PreSampledWeights) {
+			bp.currentIndex = 0
+		}
+		return tokens
+	}
+	random := rand.Float64()
+	_, tokens := bp.findSuccessorByProbability(random)
+	return tokens
+}
+
+func (bp *ByteProductionRule) findSuccessorByProbability(p float64) (uint8, []TokenStateId) {
 	// Use binary search to find the successor
 	lo, hi := 0, len(bp.Weights)
 	for lo < hi {
@@ -110,8 +131,8 @@ func (bp *ByteProductionRule) findSuccessorByProbability(p float64) []TokenState
 		} else if p >= bp.Weights[mid].UpperLimit {
 			lo = mid + 1
 		} else {
-			return bp.Weights[mid].Successor
+			return uint8(mid), bp.Weights[mid].Successor
 		}
 	}
-	return []TokenStateId{}
+	return 0, []TokenStateId{}
 }
