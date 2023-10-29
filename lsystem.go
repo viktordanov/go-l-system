@@ -15,7 +15,7 @@ type LSystem struct {
 	TokenBytes map[Token]TokenStateId
 	BytesToken map[TokenStateId]Token
 	ByteRules  [255]ByteProductionRule
-	Params     [255]uint8
+	Params     [128]uint8
 	MemPool    *MemPool
 }
 
