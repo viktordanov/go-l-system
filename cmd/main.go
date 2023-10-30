@@ -27,19 +27,19 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 	rulesStr := map[Token]string{
-		"A": "1 A B",
-		"B": "1 A",
+		"A":  "1 A; 1 A B C6",
+		"C5": "1 x",
+		"B":  "1 o; 1 x",
 	}
 
 	vars, consts, rules := ParseRules(rulesStr)
-	lsys := NewLSystem("A", rules, vars, consts)
+	lsys := NewLSystem("A", rules, vars, consts, true)
 
-	for i := 0; i < 100; i++ {
-		lsys.Reset()
-		lsys.IterateUntil(7)
-	}
-
+	lsys.Reset()
 	fmt.Println(lsys.DecodeBytes(lsys.MemPool.ReadAll()))
+	for i := 0; i < 10; i++ {
+		fmt.Println(lsys.DecodeBytes(lsys.IterateOnce()))
+	}
 
 	fmt.Println(lsys)
 }

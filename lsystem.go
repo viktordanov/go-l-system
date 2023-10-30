@@ -7,10 +7,11 @@ import (
 )
 
 type LSystem struct {
-	Axiom     Token
-	Rules     map[Token]ProductionRule
-	Variables TokenSet
-	Constants TokenSet
+	Axiom                Token
+	Rules                map[Token]ProductionRule
+	Variables            TokenSet
+	Constants            TokenSet
+	useWeightPresampling bool
 
 	TokenBytes map[Token]TokenStateId
 	BytesToken [255]Token
@@ -19,13 +20,15 @@ type LSystem struct {
 	MemPool    *MemPool
 }
 
-func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet) *LSystem {
+func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet, useWeightPresampling bool) *LSystem {
 	lSystem := &LSystem{
 		Axiom:     axiom,
 		Rules:     rulesMap,
 		Variables: vars,
 		Constants: consts,
 		MemPool:   NewMemPool(32),
+
+		useWeightPresampling: useWeightPresampling,
 	}
 
 	lSystem.encodeTokens()
@@ -90,7 +93,7 @@ func (l *LSystem) encodeTokens() {
 
 	l.ByteRules = [255]ByteProductionRule{}
 	for t, rule := range l.Rules {
-		l.ByteRules[l.TokenBytes[t]] = rule.EncodeTokens(l.TokenBytes)
+		l.ByteRules[l.TokenBytes[t]] = rule.EncodeTokens(l.TokenBytes, l.useWeightPresampling)
 	}
 }
 
@@ -204,7 +207,11 @@ func (l *LSystem) Iterate(n int) []TokenStateId {
 }
 
 func (l *LSystem) IterateOnce() []TokenStateId {
-	return l.Iterate(1)
+	l.applyRulesOnce(l.MemPool.GetReadBuffer(0), l.MemPool.GetWriteBuffer(0))
+	l.MemPool.Swap(0)
+
+	buffer := l.MemPool.GetReadBuffer(0)
+	return buffer.BytePairs[:buffer.Len]
 }
 
 func (l *LSystem) String() string {

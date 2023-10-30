@@ -71,7 +71,7 @@ type ByteProductionRule struct {
 	currentIndex      int
 }
 
-func (r *ProductionRule) EncodeTokens(tokenBytes map[Token]TokenStateId) ByteProductionRule {
+func (r *ProductionRule) EncodeTokens(tokenBytes map[Token]TokenStateId, presample bool) ByteProductionRule {
 	rule := ByteProductionRule{
 		Weights: make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
 	}
@@ -92,11 +92,13 @@ func (r *ProductionRule) EncodeTokens(tokenBytes map[Token]TokenStateId) BytePro
 		rule.Weights[w].UpperLimit = total
 	}
 
-	rule.PreSample()
+	if presample {
+		rule.PreSample()
+	}
 	return rule
 }
 
-func (bp *ByteProductionRule) RandomizeWeights(delta float64) {
+func (bp *ByteProductionRule) RandomizeWeights(delta float64, presample bool) {
 	currentWeights := make([]float64, len(bp.Weights), len(bp.Weights))
 	for i := 0; i < len(bp.Weights); i++ {
 		currentWeights[i] = bp.Weights[i].UpperLimit - bp.Weights[i].LowerLimit
@@ -111,7 +113,9 @@ func (bp *ByteProductionRule) RandomizeWeights(delta float64) {
 		total += currentWeights[i]
 		bp.Weights[i].UpperLimit = total
 	}
-	bp.PreSample()
+	if presample {
+		bp.PreSample()
+	}
 }
 
 func (bp *ByteProductionRule) PreSample() {
