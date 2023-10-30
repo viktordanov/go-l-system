@@ -157,6 +157,7 @@ func (l *LSystem) applyRulesOnce(input, output *Buffer) {
 		}
 
 		output.AppendSlice(rules.ChooseSuccessor())
+		l.ByteRules[token] = rules
 	}
 }
 
