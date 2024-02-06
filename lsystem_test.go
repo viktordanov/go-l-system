@@ -27,7 +27,7 @@ func BenchmarkLSystemIterateAB(b *testing.B) {
 	}
 
 	vars, consts, rules := ParseRules(rulesStr)
-	lsys := NewLSystem("A", rules, vars, consts)
+	lsys := NewLSystem("A", rules, vars, consts, true)
 
 	tests := []struct {
 		name  string
@@ -51,7 +51,7 @@ func BenchmarkLSystemIterateAB(b *testing.B) {
 
 func BenchmarkLSystemIterate(b *testing.B) {
 	vars, consts, rules := ParseRules(benchmarkRules)
-	ls := NewLSystem("Seed", rules, vars, consts)
+	ls := NewLSystem("Seed", rules, vars, consts, true)
 	tests := []struct {
 		name  string
 		iters int
@@ -83,7 +83,7 @@ func BenchmarkChooseSuccessor(b *testing.B) {
 
 func BenchmarkChooseSuccessorBytes(b *testing.B) {
 	vars, consts, rules := ParseRules(benchmarkRules)
-	ls := NewLSystem("Seed", rules, vars, consts)
+	ls := NewLSystem("Seed", rules, vars, consts, true)
 	r := NewProductionRule("L", ParseRule(`0.1 L u L w F e; 0.1 L_ u L e F w; 0.1 L_ u L n F s; 0.1 L_ u L s F n; 0.04 L_ [ w L_ w u seed ]; 0.04 L_ [ e L_ e u seed ]; 0.04 L_ [ s L_ s u seed ]; 0.04 L_ [ n L_ n u seed ]; 0.05 L_ u L; 1 L`))
 
 	br := ls.ByteRules[ls.TokenBytes[r.Predecessor]]
@@ -116,7 +116,7 @@ func TestCounterVariables(t *testing.T) {
 		"S1":   `1 X`,
 	}
 	vars, consts, rules := ParseRules(counterRules)
-	ls := NewLSystem("Seed", rules, vars, consts)
+	ls := NewLSystem("Seed", rules, vars, consts, true)
 
 	ls.IterateOnce()
 	assertState(t, []Token{"L", "u", "S3"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
