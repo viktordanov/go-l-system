@@ -14,11 +14,12 @@ import (
 )
 
 type LSystem struct {
-	Axiom                Token
-	Rules                map[Token]ProductionRule
-	Variables            TokenSet
-	Constants            TokenSet
-	useWeightPresampling bool
+	Axiom     Token
+	Rules     map[Token]ProductionRule
+	Variables TokenSet
+	Constants TokenSet
+
+	useWeightPreSampling bool
 
 	TokenBytes map[Token]TokenStateId
 	BytesToken [255]Token
@@ -27,7 +28,7 @@ type LSystem struct {
 	MemPool    *MemPool
 }
 
-func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet, useWeightPresampling bool) *LSystem {
+func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet, useWeightPreSampling bool) *LSystem {
 	lSystem := &LSystem{
 		Axiom:     axiom,
 		Rules:     rulesMap,
@@ -35,7 +36,7 @@ func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, c
 		Constants: consts,
 		MemPool:   NewMemPool(32),
 
-		useWeightPresampling: useWeightPresampling,
+		useWeightPreSampling: useWeightPreSampling,
 	}
 
 	lSystem.encodeTokens()
@@ -100,7 +101,7 @@ func (l *LSystem) encodeTokens() {
 
 	l.ByteRules = [255]ByteProductionRule{}
 	for t, rule := range l.Rules {
-		l.ByteRules[l.TokenBytes[t]] = rule.EncodeTokens(l.TokenBytes, l.useWeightPresampling)
+		l.ByteRules[l.TokenBytes[t]] = rule.EncodeTokens(l.TokenBytes, l.useWeightPreSampling)
 	}
 }
 
@@ -195,6 +196,7 @@ func (l *LSystem) prime(n int) {
 func (l *LSystem) distribute() {
 	chunkSize := l.MemPool.GetReadBuffer(0).Len / threadCount
 	for i := 0; i < threadCount; i++ {
+		// TODO: account for catalysts
 		from := i * chunkSize
 		to := from + chunkSize
 		if i == threadCount-1 {
