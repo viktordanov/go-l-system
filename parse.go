@@ -18,10 +18,18 @@ func ParseRule(str string) []WeightedRule {
 		if err != nil {
 			continue
 		}
-		weightedTokens = append(weightedTokens, struct {
-			Probability float64
-			Tokens      []Token
-		}{
+
+		// expect *Token to indicate a catalyst requirement on [1]
+		if len(tokens) > 1 && tokens[1][0] == '*' {
+			weightedTokens = append(weightedTokens, WeightedRule{
+				Probability: weight,
+				Catalyst:    Token(tokens[1][1:]),
+				Tokens:      symbolsToTokens(tokens[2:]),
+			})
+			continue
+		}
+
+		weightedTokens = append(weightedTokens, WeightedRule{
 			Probability: weight,
 			Tokens:      symbolsToTokens(tokens[1:]),
 		})
@@ -34,21 +42,21 @@ func ParseRules(rulesMap map[Token]string) (TokenSet, TokenSet, map[Token]Produc
 	consts := make(TokenSet)
 	parsedRules := make(map[Token]ProductionRule)
 
-	for key, value := range rulesMap {
-		if isVariable(key) {
-			vars.Add(key)
+	indexToken := func(token Token) {
+		if isVariable(token) {
+			vars.Add(token)
 		} else {
-			consts.Add(key)
+			consts.Add(token)
 		}
+	}
+	for key, value := range rulesMap {
+		indexToken(key)
 		parsedRules[key] = NewProductionRule(key, ParseRule(value))
 
 		for _, wt := range parsedRules[key].Weights {
+			indexToken(wt.Catalyst)
 			for _, token := range wt.Tokens {
-				if isVariable(token) {
-					vars.Add(token)
-				} else {
-					consts.Add(token)
-				}
+				indexToken(token)
 			}
 		}
 	}
@@ -97,11 +105,17 @@ func symbolsToTokens(symbols []string) []Token {
 }
 
 func isCapitalized(t Token) bool {
+	// empty string for missing catalyst (nil token)
+	if len(t) == 0 {
+		return false
+	}
 	firstLetter := string(t)[0]
 	return firstLetter >= 'A' && firstLetter <= 'Z'
 }
 
 func isVariable(t Token) bool {
-	endsWithUnderscore := string(t)[len(t)-1] == '_'
+	// empty string for missing catalyst (nil token)
+	endsWithUnderscore := len(t) >= 1
+	endsWithUnderscore = endsWithUnderscore && t[len(t)-1] == '_'
 	return isCapitalized(t) && !endsWithUnderscore
 }

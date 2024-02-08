@@ -2,12 +2,6 @@ package lsystem
 
 import (
 	"fmt"
-	"github.com/go-echarts/go-echarts/v2/charts"
-	"github.com/go-echarts/go-echarts/v2/opts"
-	"io"
-	"log"
-	"math"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,11 +15,14 @@ type LSystem struct {
 
 	useWeightPreSampling bool
 
-	TokenBytes map[Token]TokenStateId
-	BytesToken [255]Token
-	ByteRules  [255]ByteProductionRule
-	Params     [128]uint8
-	MemPool    *MemPool
+	EmptyTokenId TokenStateId
+	TokenBytes   map[Token]TokenStateId
+	BytesToken   [255]Token
+	ByteRules    [255]ByteProductionRule
+	ParamToByte  [255]TokenStateId
+
+	Params  [128]uint8
+	MemPool *MemPool
 }
 
 func NewLSystem(axiom Token, rulesMap map[Token]ProductionRule, vars TokenSet, consts TokenSet, useWeightPreSampling bool) *LSystem {
@@ -71,12 +68,11 @@ func (l *LSystem) encodeTokens() {
 				statefulVarParams[baseVar] = numberState
 			}
 			statefulVarParams[baseVar] = max(numberState, statefulVarParams[baseVar])
-		} else {
-			bytePair := NewTokenStateId(i, false)
-			l.TokenBytes[t] = bytePair
-			l.BytesToken[bytePair] = t
-			i++
 		}
+		bytePair := NewTokenStateId(i, false)
+		l.TokenBytes[t] = bytePair
+		l.BytesToken[bytePair] = t
+		i++
 	}
 
 	for t := range l.Constants {
@@ -85,15 +81,18 @@ func (l *LSystem) encodeTokens() {
 		l.BytesToken[bytePair] = t
 		i++
 	}
+	l.EmptyTokenId = l.TokenBytes[""]
 
 	j := 0
 	for baseVar, maxState := range statefulVarParams {
 		minIndex := 1
 		maxIndex := int(maxState)
+		baseTokenId := l.TokenBytes[Token(baseVar)]
 		for k := minIndex; k <= maxIndex; k++ {
 			bytePair := NewTokenStateId(uint8(j), true)
 			l.TokenBytes[Token(string(baseVar)+strconv.Itoa(k))] = bytePair
 			l.BytesToken[bytePair] = Token(string(baseVar) + strconv.Itoa(k))
+			l.ParamToByte[bytePair] = baseTokenId
 			l.Params[j] = uint8(k)
 			j++
 		}
@@ -154,7 +153,7 @@ func (l *LSystem) applyRules(n int) {
 }
 
 func (l *LSystem) applyRulesOnce(input, output *Buffer) {
-	for _, token := range input.BytePairs[:input.Len] {
+	for tokenIdx, token := range input.BytePairs[:input.Len] {
 		if token.HasParam() && l.Params[token.TokenId()] > 1 {
 			token--
 		}
@@ -164,7 +163,11 @@ func (l *LSystem) applyRulesOnce(input, output *Buffer) {
 			continue
 		}
 
-		output.AppendSlice(rules.ChooseSuccessor())
+		predecessor := l.EmptyTokenId
+		if tokenIdx > 0 {
+			predecessor = input.BytePairs[tokenIdx-1]
+		}
+		output.AppendSlice(rules.ChooseSuccessor(l, predecessor))
 		l.ByteRules[token] = rules
 	}
 }

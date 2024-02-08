@@ -35,8 +35,8 @@ func BenchmarkLSystemIterateAB(b *testing.B) {
 	}{
 		{"10", 10},
 		{"20", 20},
-		{"30", 30},
-		{"40", 40},
+		//{"30", 30},
+		//{"40", 40},
 	}
 
 	b.ResetTimer()
@@ -90,7 +90,7 @@ func BenchmarkChooseSuccessorBytes(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		br.ChooseSuccessor()
+		br.ChooseSuccessor(ls, ls.EmptyTokenId)
 	}
 }
 
@@ -127,6 +127,25 @@ func TestCounterVariables(t *testing.T) {
 	ls.IterateOnce()
 	assertState(t, []Token{"L", "u", "X"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
 }
+
+func TestCatalystParse(t *testing.T) {
+	var catalystRules = map[Token]string{
+		"A": `1 A B`,
+		"B": `1 *B A A`,
+	}
+	vars, consts, rules := ParseRules(catalystRules)
+	ls := NewLSystem("Seed", rules, vars, consts, false)
+
+	ls.IterateOnce()
+	assertState(t, []Token{"A", "B"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
+	ls.IterateOnce()
+	assertState(t, []Token{"A", "B", "B"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
+	ls.IterateOnce()
+	assertState(t, []Token{"A", "B", "B", "A", "A"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
+	ls.IterateOnce()
+	assertState(t, []Token{"A", "B", "B", "A", "A", "A", "B", "A", "B"}, ls.DecodeBytes(ls.MemPool.ReadAll()))
+}
+
 func assertState(t *testing.T, expected, actual []Token) {
 	assert.Equal(t, len(expected), len(actual))
 	assert.EqualValues(t, expected, actual)

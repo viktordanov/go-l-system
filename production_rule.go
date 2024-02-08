@@ -8,6 +8,7 @@ import (
 
 type WeightedRule struct {
 	Probability float64
+	Catalyst    Token
 	Tokens      []Token
 }
 
@@ -24,6 +25,11 @@ func (r *ProductionRule) String() string {
 	sb.WriteString(": `")
 	for i, wt := range r.Weights {
 		sb.WriteString(strconv.FormatFloat(wt.Probability, 'f', 2, 64))
+		if wt.Catalyst != "" {
+			sb.WriteString(" *")
+			sb.WriteString(string(wt.Catalyst))
+			sb.WriteString(" -> ")
+		}
 		sb.WriteString(" ")
 		for _, t := range wt.Tokens {
 			sb.WriteString(string(t))
@@ -62,6 +68,7 @@ func (r *ProductionRule) ChooseSuccessor() []Token {
 type ByteWeightedRule struct {
 	LowerLimit float64
 	UpperLimit float64
+	Catalyst   TokenStateId
 	Successor  []TokenStateId
 }
 
@@ -69,11 +76,13 @@ type ByteProductionRule struct {
 	Weights           []ByteWeightedRule
 	PreSampledWeights []uint8
 	currentIndex      int
+	Predecessor       TokenStateId
 }
 
 func (r *ProductionRule) EncodeTokens(tokenBytes map[Token]TokenStateId, presample bool) ByteProductionRule {
 	rule := ByteProductionRule{
-		Weights: make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
+		Weights:     make([]ByteWeightedRule, len(r.Weights), len(r.Weights)),
+		Predecessor: tokenBytes[r.Predecessor],
 	}
 
 	total := 0.0
@@ -85,6 +94,7 @@ func (r *ProductionRule) EncodeTokens(tokenBytes map[Token]TokenStateId, presamp
 			encodedTokens[i] = tokenBytes[t]
 		}
 		rule.Weights[w] = ByteWeightedRule{
+			Catalyst:  tokenBytes[wt.Catalyst],
 			Successor: encodedTokens,
 		}
 		rule.Weights[w].LowerLimit = total
@@ -127,26 +137,38 @@ func (bp *ByteProductionRule) PreSample() {
 	}
 	for i := 0; i < 256; i++ {
 		random := rand.Float64() * (bp.Weights[len(bp.Weights)-1].UpperLimit)
-		index, _ := bp.findSuccessorByProbability(random)
+		index, _ := bp.findRuleByProbability(random)
 		bp.PreSampledWeights[i] = index
 	}
 }
 
-func (bp *ByteProductionRule) ChooseSuccessor() []TokenStateId {
+func (bp *ByteProductionRule) ChooseSuccessor(l *LSystem, previousToken TokenStateId) []TokenStateId {
+	emptyToken := l.EmptyTokenId
+	if previousToken.HasParam() {
+		previousToken = l.ParamToByte[previousToken]
+	}
+
 	if bp.PreSampledWeights != nil {
-		tokens := bp.Weights[bp.PreSampledWeights[bp.currentIndex]].Successor
+		rule := bp.Weights[bp.PreSampledWeights[bp.currentIndex]]
 		bp.currentIndex++
 		if bp.currentIndex == len(bp.PreSampledWeights) {
 			bp.currentIndex = 0
 		}
-		return tokens
+		if rule.Catalyst == emptyToken || rule.Catalyst == previousToken {
+			return rule.Successor
+		}
+		return []TokenStateId{bp.Predecessor}
 	}
 	random := rand.Float64() * (bp.Weights[len(bp.Weights)-1].UpperLimit)
-	_, tokens := bp.findSuccessorByProbability(random)
-	return tokens
+	_, rule := bp.findRuleByProbability(random)
+
+	if rule.Catalyst == emptyToken || rule.Catalyst == previousToken {
+		return rule.Successor
+	}
+	return []TokenStateId{bp.Predecessor}
 }
 
-func (bp *ByteProductionRule) findSuccessorByProbability(p float64) (uint8, []TokenStateId) {
+func (bp *ByteProductionRule) findRuleByProbability(p float64) (uint8, ByteWeightedRule) {
 	// Use binary search to find the successor
 	lo, hi := 0, len(bp.Weights)
 	for lo < hi {
@@ -156,10 +178,10 @@ func (bp *ByteProductionRule) findSuccessorByProbability(p float64) (uint8, []To
 		} else if p >= bp.Weights[mid].UpperLimit {
 			lo = mid + 1
 		} else {
-			return uint8(mid), bp.Weights[mid].Successor
+			return uint8(mid), bp.Weights[mid]
 		}
 	}
-	return 0, []TokenStateId{}
+	return 0, ByteWeightedRule{}
 }
 
 func (bp *ByteProductionRule) String(tokens [255]Token) string {
